@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
@@ -17,7 +17,7 @@ export default function HomeScreen({ navigation }: Props) {
   const handleLogout = async () => {
     try {
       await firebaseAuth.logout();
-      Alert.alert('Thành công', 'Bạn đã đăng xuất.');
+      Alert.alert('Đăng xuất', 'Bạn đã đăng xuất thành công.');
       navigation.replace('Login');
     } catch (error: any) {
       Alert.alert('Lỗi', error.message || 'Không thể đăng xuất.');
@@ -25,124 +25,137 @@ export default function HomeScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.welcomeText}>Xin chào,</Text>
-        <Text style={styles.emailText}>{user ? user.email : 'Khách'}</Text>
-        <Text style={styles.badgeText}>
-          {user ? 'Trạng thái: Đã đăng nhập' : 'Trạng thái: Chưa đăng nhập'}
+        <Text style={styles.icon}>🎉</Text>
+        <Text style={styles.helloTitle}>Hello World!</Text>
+        <Text style={styles.subtitle}>
+          Chúc mừng bạn đã đăng ký / đăng nhập thành công vào hệ thống.
         </Text>
 
-        <View style={styles.divider} />
+        <View style={styles.infoBox}>
+          <Text style={styles.infoLabel}>Tài khoản hiện tại:</Text>
+          <Text style={styles.emailText}>{user?.email || 'Chưa xác định'}</Text>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('List')}
-        >
-          <Text style={styles.actionButtonText}>Xem Danh Sách Sách</Text>
-        </TouchableOpacity>
+          <Text style={styles.infoLabel}>User UID:</Text>
+          <Text style={styles.uidText}>{user?.uid || 'N/A'}</Text>
+        </View>
 
-        {user ? (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Đăng Xuất</Text>
-          </TouchableOpacity>
-        ) : (
+        <View style={styles.buttonGroup}>
           <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => navigation.navigate('Login')}
+            style={styles.primaryButton}
+            onPress={() => navigation.navigate('List')}
           >
-            <Text style={styles.loginButtonText}>Đi đến Đăng Nhập</Text>
+            <Text style={styles.primaryButtonText}>📚 Xem Danh Sách Sách</Text>
           </TouchableOpacity>
-        )}
+
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>🚪 Đăng Xuất</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f5f7fb',
+    flexGrow: 1,
+    backgroundColor: '#f0f4f8',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   card: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 4,
   },
-  welcomeText: {
-    fontSize: 16,
-    color: '#697386',
-  },
-  emailText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1a1f36',
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  badgeText: {
-    fontSize: 13,
-    color: '#28a745',
-    backgroundColor: '#e8f7ee',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    backgroundColor: '#eaecef',
-    marginVertical: 20,
-  },
-  actionButton: {
-    width: '100%',
-    backgroundColor: '#0066cc',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
+  icon: {
+    fontSize: 56,
     marginBottom: 12,
   },
-  actionButtonText: {
+  helloTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#1a202c',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#718096',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  infoBox: {
+    width: '100%',
+    backgroundColor: '#f7fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+    marginBottom: 24,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#a0aec0',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  emailText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2b6cb0',
+  },
+  uidText: {
+    fontSize: 13,
+    color: '#4a5568',
+    fontFamily: 'monospace',
+  },
+  buttonGroup: {
+    width: '100%',
+    gap: 12,
+  },
+  primaryButton: {
+    backgroundColor: '#3182ce',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#3182ce',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  primaryButtonText: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   logoutButton: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderColor: '#cf222e',
-    borderWidth: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e53e3e',
+    paddingVertical: 13,
+    borderRadius: 10,
     alignItems: 'center',
   },
   logoutButtonText: {
-    color: '#cf222e',
+    color: '#e53e3e',
     fontSize: 15,
-    fontWeight: '600',
-  },
-  loginButton: {
-    width: '100%',
-    backgroundColor: '#0066cc',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
