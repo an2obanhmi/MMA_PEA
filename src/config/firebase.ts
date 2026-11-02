@@ -1,5 +1,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, Auth } from 'firebase/auth';
+// @ts-ignore: getReactNativePersistence is available at runtime in React Native
+import { getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -15,8 +18,16 @@ const firebaseConfig = {
 // Khởi tạo Firebase App (tránh khởi tạo nhiều lần)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Khởi tạo các dịch vụ
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Khởi tạo Auth với AsyncStorage để duy trì phiên đăng nhập giữa các lần mở app
+let auth: Auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  });
+} catch {
+  auth = getAuth(app);
+}
 
+export { auth };
+export const db = getFirestore(app);
 export default app;
