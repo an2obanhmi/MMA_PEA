@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.an3obanhmi.pemma"
@@ -30,6 +25,9 @@
         "projectId": "a308a15f-6698-48c5-afb3-5096036f34a4"
       }
     },
-    "owner": "an3obanhmi"
+    "owner": "an3obanhmi",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
