@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -11,9 +11,9 @@ import RegisterScreen from '../screens/RegisterScreen';
 import { useAuth } from '../context/AuthContext';
 
 export type RootStackParamList = {
+  Home: undefined;
   Login: undefined;
   Register: undefined;
-  Home: undefined;
   List: undefined;
   Detail: { id: string } | undefined;
 };
@@ -23,43 +23,85 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function AppNavigator() {
   const { user, loading } = useAuth();
 
+  // Khi đang kiểm tra trạng thái đăng nhập, hiển thị loading để tránh nhấp nháy giao diện
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0066cc" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#e11d48" />
       </View>
     );
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={user ? 'Home' : 'Login'}>
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen} 
-          options={{ title: 'Đăng nhập', headerShown: false }} 
+      <Stack.Navigator
+        initialRouteName={user ? 'List' : 'Home'}
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#1e293b',
+          },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        {/* Home Screen (Public) */}
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="Register" 
-          component={RegisterScreen} 
-          options={{ title: 'Đăng ký', headerShown: true }} 
+
+        {/* Login Screen */}
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{
+            title: 'Sign In',
+            headerShown: true,
+          }}
         />
-        <Stack.Screen 
-          name="Home" 
-          component={HomeScreen} 
-          options={{ title: 'Trang chủ', headerBackVisible: false }} 
+
+        {/* Register Screen */}
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={{
+            title: 'Register',
+            headerShown: true,
+          }}
         />
-        <Stack.Screen 
-          name="List" 
-          component={ListScreen} 
-          options={{ title: 'Danh sách' }} 
+
+        {/* List Screen (Protected) */}
+        <Stack.Screen
+          name="List"
+          component={ListScreen}
+          options={{
+            title: 'Watchlist',
+            headerShown: false,
+          }}
         />
-        <Stack.Screen 
-          name="Detail" 
-          component={DetailScreen} 
-          options={{ title: 'Chi tiết' }} 
+
+        {/* Detail Screen (Protected) */}
+        <Stack.Screen
+          name="Detail"
+          component={DetailScreen}
+          options={{
+            title: 'Movie Details',
+            headerShown: true,
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+  },
+});

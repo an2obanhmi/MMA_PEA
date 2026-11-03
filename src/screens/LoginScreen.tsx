@@ -6,14 +6,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { firebaseAuth, getAuthErrorMessage } from '../services/firebaseAuth';
+import { firebaseAuth } from '../services/firebaseAuth';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -24,223 +24,224 @@ interface Props {
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+
+  const getEmailError = () => {
+    if (!hasSubmitted) return '';
+    if (!email.trim()) return 'Email is required';
+    if (!isValidEmail(email)) return 'Please enter a valid email address';
+    return '';
+  };
+
+  const getPasswordError = () => {
+    if (!hasSubmitted) return '';
+    if (!password) return 'Password is required';
+    return '';
+  };
+
+  const emailError = getEmailError();
+  const passwordError = getPasswordError();
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      setErrorMessage('Vui lòng nhập đầy đủ Email và Mật khẩu.');
+    setHasSubmitted(true);
+    setAuthError('');
+
+    const isEmailValid = email.trim() !== '' && isValidEmail(email);
+    const isPasswordValid = password !== '';
+
+    if (!isEmailValid || !isPasswordValid) {
       return;
     }
 
     setLoading(true);
-    setErrorMessage('');
-
     try {
       await firebaseAuth.login(email, password);
-      // Đăng nhập thành công -> Điều hướng sang Home
-      navigation.replace('Home');
+      // Đăng nhập thành công -> Điều hướng sang List screen
+      navigation.replace('List');
     } catch (error: any) {
-      const msg = getAuthErrorMessage(error.code);
-      setErrorMessage(msg);
-      Alert.alert('Đăng nhập thất bại', msg);
+      setAuthError(error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.keyboardContainer}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.headerTitle}>Chào mừng trở lại!</Text>
-          <Text style={styles.subTitle}>Đăng nhập để tiếp tục</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardContainer}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <Text style={styles.headerTitle}>Sign In</Text>
+            <Text style={styles.subTitle}>Welcome back to CineList</Text>
 
-          {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+            {/* Thông báo lỗi Firebase Auth với testID="error-auth" */}
+            {authError ? (
+              <View style={styles.errorBox}>
+                <Text testID="error-auth" style={styles.errorText}>
+                  {authError}
+                </Text>
+              </View>
+            ) : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập địa chỉ email..."
-              placeholderTextColor="#999"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                setErrorMessage('');
-              }}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Mật khẩu</Text>
-            <View style={styles.passwordContainer}>
+            {/* Trường Email */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.passwordInput}
-                placeholder="Nhập mật khẩu..."
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
+                style={[styles.input, emailError ? styles.inputInvalid : null]}
+                placeholder="Enter your email"
+                placeholderTextColor="#64748b"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setAuthError('');
+                }}
+              />
+              {emailError ? <Text style={styles.fieldErrorText}>{emailError}</Text> : null}
+            </View>
+
+            {/* Trường Password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={[styles.input, passwordError ? styles.inputInvalid : null]}
+                placeholder="Enter your password"
+                placeholderTextColor="#64748b"
+                secureTextEntry
                 autoCapitalize="none"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
-                  setErrorMessage('');
+                  setAuthError('');
                 }}
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.showPassButton}
-              >
-                <Text style={styles.showPassText}>{showPassword ? 'Ẩn' : 'Hiện'}</Text>
+              {passwordError ? <Text style={styles.fieldErrorText}>{passwordError}</Text> : null}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footerRow}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                <Text style={styles.linkText}>Register now</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Đăng Nhập</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Chưa có tài khoản? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.linkText}>Đăng ký ngay</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
   keyboardContainer: {
     flex: 1,
-    backgroundColor: '#f5f7fb',
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: '#1e293b',
+    borderRadius: 20,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   headerTitle: {
     fontSize: 26,
-    fontWeight: 'bold',
-    color: '#1a1f36',
+    fontWeight: '800',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 6,
   },
   subTitle: {
-    fontSize: 15,
-    color: '#697386',
+    fontSize: 14,
+    color: '#94a3b8',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   errorBox: {
-    backgroundColor: '#ffebe9',
-    borderColor: '#ffc1bd',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#ef4444',
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
   },
   errorText: {
-    color: '#cf222e',
+    color: '#ef4444',
     fontSize: 14,
     textAlign: 'center',
+    fontWeight: '600',
   },
   inputGroup: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#3c4257',
+    color: '#cbd5e1',
     marginBottom: 6,
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#dfe1e6',
-    borderRadius: 8,
+    borderColor: '#475569',
+    borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#1a1f36',
-    backgroundColor: '#fafbfc',
+    color: '#f8fafc',
+    backgroundColor: '#0f172a',
   },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#dfe1e6',
-    borderRadius: 8,
-    backgroundColor: '#fafbfc',
-    paddingHorizontal: 14,
+  inputInvalid: {
+    borderColor: '#ef4444',
   },
-  passwordInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 15,
-    color: '#1a1f36',
-  },
-  showPassButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  showPassText: {
-    color: '#0066cc',
-    fontWeight: '600',
-    fontSize: 13,
+  fieldErrorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   primaryButton: {
-    backgroundColor: '#0066cc',
+    backgroundColor: '#e11d48',
     height: 48,
-    borderRadius: 8,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
-    shadowColor: '#0066cc',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    marginTop: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#7bb0e8',
+    opacity: 0.6,
   },
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   footerRow: {
     flexDirection: 'row',
@@ -250,11 +251,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#697386',
+    color: '#94a3b8',
   },
   linkText: {
     fontSize: 14,
-    color: '#0066cc',
-    fontWeight: 'bold',
+    color: '#e11d48',
+    fontWeight: '700',
   },
 });
