@@ -3,36 +3,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Hàm kiểm tra tính hợp lệ của dữ liệu phim
+    // Kiểm tra tính hợp lệ của dữ liệu phim theo yêu cầu Section 2.2
     function isValidMovie(movie) {
       return movie.userId == request.auth.uid
+        // title bắt buộc, không được chỉ chứa khoảng trắng, tối đa 100 ký tự
         && movie.title is string 
-        && movie.title.trim().size() > 0 
+        && movie.title.matches('.*[^ \t\r\n].*')
         && movie.title.size() <= 100
+        // director bắt buộc, không được chỉ chứa khoảng trắng, tối đa 60 ký tự
         && movie.director is string 
-        && movie.director.trim().size() > 0 
+        && movie.director.matches('.*[^ \t\r\n].*')
         && movie.director.size() <= 60
+        // genre phải thuộc 1 trong 4 thể loại
         && movie.genre in ['Action', 'Comedy', 'Drama', 'Horror']
+        // status phải thuộc 1 trong 3 trạng thái
         && movie.status in ['Plan to Watch', 'Watching', 'Watched']
+        // rating: tuỳ chọn, nếu có phải là số nguyên từ 0 đến 5
         && (!('rating' in movie) || movie.rating == null || (movie.rating is int && movie.rating >= 0 && movie.rating <= 5))
+        // notes: tuỳ chọn, nếu có tối đa 300 ký tự
         && (!('notes' in movie) || movie.notes == null || (movie.notes is string && movie.notes.size() <= 300))
+        // favorite: tuỳ chọn, nếu có phải là boolean
         && (!('favorite' in movie) || movie.favorite is bool);
     }
 
     match /movies/{movieId} {
-      // Chỉ cho phép đọc nếu người dùng đã đăng nhập và là chủ sở hữu bản ghi
+      // 1. Chỉ người dùng đã đăng nhập mới được đọc các hàng của chính mình
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       
-      // Chỉ cho phép tạo mới nếu đăng nhập và dữ liệu hợp lệ
+      // 2. Thêm mới: phải đăng nhập, đúng userId của chính mình và dữ liệu hợp lệ
       allow create: if request.auth != null 
         && isValidMovie(request.resource.data);
       
-      // Chỉ cho phép sửa nếu đúng chủ sở hữu và dữ liệu mới hợp lệ
+      // 3. Sửa: chỉ người sở hữu bản ghi mới được sửa và dữ liệu mới phải hợp lệ
       allow update: if request.auth != null 
         && resource.data.userId == request.auth.uid
         && isValidMovie(request.resource.data);
       
-      // Chỉ cho phép xoá nếu đúng chủ sở hữu
+      // 4. Xóa: chỉ người sở hữu bản ghi mới được xóa
       allow delete: if request.auth != null 
         && resource.data.userId == request.auth.uid;
     }
