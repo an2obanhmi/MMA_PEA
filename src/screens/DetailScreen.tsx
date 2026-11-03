@@ -18,6 +18,16 @@ import { movieService } from '../services/movieService';
 import { Genre, Movie, MovieStatus } from '../types';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { AppButton, AppInput, GenreStatusPicker } from '../components';
+import { COLORS, GENRES, STATUSES } from '../constants/theme';
+import {
+  validateTitle,
+  validateDirector,
+  validateGenre,
+  validateStatus,
+  validateRating,
+  validateNotes,
+} from '../utils/validation';
 
 type DetailScreenRouteProp = RouteProp<RootStackParamList, 'Detail'>;
 type DetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Detail'>;
@@ -26,9 +36,6 @@ interface Props {
   route: DetailScreenRouteProp;
   navigation: DetailScreenNavigationProp;
 }
-
-const GENRES: Genre[] = ['Action', 'Comedy', 'Drama', 'Horror'];
-const STATUSES: MovieStatus[] = ['Plan to Watch', 'Watching', 'Watched'];
 
 export default function DetailScreen({ route, navigation }: Props) {
   const movieId = route.params?.id;
@@ -50,7 +57,7 @@ export default function DetailScreen({ route, navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
-  // Lắng nghe dữ liệu chi tiết của phim theo thời gian thực
+  // Lắng nghe dữ liệu chi tiết của phim
   useEffect(() => {
     if (!movieId) {
       setLoading(false);
@@ -99,56 +106,13 @@ export default function DetailScreen({ route, navigation }: Props) {
   }, [movieId]);
 
   // Validation rules
-  const getTitleError = () => {
-    if (!hasSubmitted) return '';
-    if (!title.trim()) return 'Title is required';
-    if (title.length > 100) return 'Title must be at most 100 characters';
-    return '';
-  };
+  const titleError = validateTitle(title, hasSubmitted);
+  const directorError = validateDirector(director, hasSubmitted);
+  const genreError = validateGenre(genre, hasSubmitted);
+  const statusError = validateStatus(status, hasSubmitted);
+  const ratingError = validateRating(rating, hasSubmitted);
+  const notesError = validateNotes(notes, hasSubmitted);
 
-  const getDirectorError = () => {
-    if (!hasSubmitted) return '';
-    if (!director.trim()) return 'Director is required';
-    if (director.length > 60) return 'Director must be at most 60 characters';
-    return '';
-  };
-
-  const getGenreError = () => {
-    if (!hasSubmitted) return '';
-    if (!genre) return 'Please choose a genre';
-    return '';
-  };
-
-  const getStatusError = () => {
-    if (!hasSubmitted) return '';
-    if (!status) return 'Please choose a status';
-    return '';
-  };
-
-  const getRatingError = () => {
-    if (!hasSubmitted) return '';
-    if (rating.trim() === '') return '';
-    const num = Number(rating.trim());
-    if (!Number.isInteger(num) || num < 0 || num > 5 || isNaN(num)) {
-      return 'Rating must be a whole number from 0 to 5';
-    }
-    return '';
-  };
-
-  const getNotesError = () => {
-    if (!hasSubmitted) return '';
-    if (notes.length > 300) return 'Notes must be at most 300 characters';
-    return '';
-  };
-
-  const titleError = getTitleError();
-  const directorError = getDirectorError();
-  const genreError = getGenreError();
-  const statusError = getStatusError();
-  const ratingError = getRatingError();
-  const notesError = getNotesError();
-
-  // Bật chế độ sửa
   const handleStartEdit = () => {
     if (!movie) return;
     setTitle(movie.title);
@@ -162,7 +126,6 @@ export default function DetailScreen({ route, navigation }: Props) {
     setIsEditing(true);
   };
 
-  // Hủy sửa
   const handleCancelEdit = () => {
     if (!movie) return;
     setTitle(movie.title);
@@ -176,25 +139,18 @@ export default function DetailScreen({ route, navigation }: Props) {
     setIsEditing(false);
   };
 
-  // Lưu chỉnh sửa
   const handleSaveEdit = async () => {
     setHasSubmitted(true);
     setEditError('');
 
-    const isTitleValid = title.trim() !== '' && title.length <= 100;
-    const isDirectorValid = director.trim() !== '' && director.length <= 60;
-    const isGenreValid = genre !== '';
-    const isStatusValid = status !== '';
-
-    let isRatingValid = true;
-    if (rating.trim() !== '') {
-      const num = Number(rating.trim());
-      isRatingValid = Number.isInteger(num) && num >= 0 && num <= 5;
-    }
-
-    const isNotesValid = notes.length <= 300;
-
-    if (!isTitleValid || !isDirectorValid || !isGenreValid || !isStatusValid || !isRatingValid || !isNotesValid) {
+    if (
+      validateTitle(title, true) ||
+      validateDirector(director, true) ||
+      validateGenre(genre, true) ||
+      validateStatus(status, true) ||
+      validateRating(rating, true) ||
+      validateNotes(notes, true)
+    ) {
       return;
     }
 
@@ -219,7 +175,6 @@ export default function DetailScreen({ route, navigation }: Props) {
     }
   };
 
-  // Toggle favorite
   const handleToggleFavorite = async () => {
     if (!movie) return;
     try {
@@ -229,7 +184,6 @@ export default function DetailScreen({ route, navigation }: Props) {
     }
   };
 
-  // Xóa phim với Confirmation Dialog
   const handleDelete = () => {
     if (!movie) return;
 
@@ -258,7 +212,7 @@ export default function DetailScreen({ route, navigation }: Props) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#e11d48" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       </SafeAreaView>
     );
@@ -269,9 +223,11 @@ export default function DetailScreen({ route, navigation }: Props) {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBox}>
           <Text style={styles.notFoundText}>Movie not found.</Text>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('List')}>
-            <Text style={styles.backBtnText}>Back to Watchlist</Text>
-          </TouchableOpacity>
+          <AppButton
+            title="Back to Watchlist"
+            variant="secondary"
+            onPress={() => navigation.navigate('List')}
+          />
         </View>
       </SafeAreaView>
     );
@@ -324,12 +280,20 @@ export default function DetailScreen({ route, navigation }: Props) {
             <View style={styles.divider} />
 
             <View style={styles.actionButtonsRow}>
-              <TouchableOpacity style={styles.editBtn} onPress={handleStartEdit}>
-                <Text style={styles.editBtnText}>✏️ Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-                <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
-              </TouchableOpacity>
+              <AppButton
+                title="Edit"
+                variant="primary"
+                icon="✏️"
+                onPress={handleStartEdit}
+                style={styles.actionBtn}
+              />
+              <AppButton
+                title="Delete"
+                variant="danger"
+                icon="🗑️"
+                onPress={handleDelete}
+                style={styles.actionBtn}
+              />
             </View>
           </View>
         ) : (
@@ -343,100 +307,66 @@ export default function DetailScreen({ route, navigation }: Props) {
               </View>
             ) : null}
 
-            {/* Title */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Title *</Text>
+            <AppInput
+              label="Title *"
+              value={title}
+              error={titleError}
+              onChangeText={(t) => {
+                setTitle(t);
+                setEditError('');
+              }}
+            />
+
+            <AppInput
+              label="Director *"
+              value={director}
+              error={directorError}
+              onChangeText={(t) => {
+                setDirector(t);
+                setEditError('');
+              }}
+            />
+
+            <GenreStatusPicker
+              label="Genre *"
+              options={GENRES}
+              emptyLabel="Choose genre"
+              selectedValue={genre}
+              error={genreError}
+              onSelect={(g) => {
+                setGenre(g);
+                setEditError('');
+              }}
+            />
+
+            <GenreStatusPicker
+              label="Status *"
+              options={STATUSES}
+              emptyLabel="Choose status"
+              selectedValue={status}
+              error={statusError}
+              onSelect={(st) => {
+                setStatus(st);
+                setEditError('');
+              }}
+            />
+
+            <AppInput
+              label="Rating (0 - 5)"
+              placeholder="Optional"
+              keyboardType="numeric"
+              value={rating}
+              error={ratingError}
+              onChangeText={(t) => {
+                setRating(t);
+                setEditError('');
+              }}
+            />
+
+            <View style={styles.notesGroup}>
+              <Text style={styles.notesLabel}>Notes (max 300 chars)</Text>
               <TextInput
-                style={[styles.input, titleError ? styles.inputInvalid : null]}
-                value={title}
-                onChangeText={(t) => {
-                  setTitle(t);
-                  setEditError('');
-                }}
-              />
-              {titleError ? <Text style={styles.fieldErrorText}>{titleError}</Text> : null}
-            </View>
-
-            {/* Director */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Director *</Text>
-              <TextInput
-                style={[styles.input, directorError ? styles.inputInvalid : null]}
-                value={director}
-                onChangeText={(t) => {
-                  setDirector(t);
-                  setEditError('');
-                }}
-              />
-              {directorError ? <Text style={styles.fieldErrorText}>{directorError}</Text> : null}
-            </View>
-
-            {/* Genre */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Genre *</Text>
-              <View style={styles.pickerRow}>
-                {GENRES.map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.pickerChip, genre === g && styles.pickerChipActive]}
-                    onPress={() => {
-                      setGenre(g);
-                      setEditError('');
-                    }}
-                  >
-                    <Text style={[styles.pickerChipText, genre === g && styles.pickerChipTextActive]}>
-                      {g}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {genreError ? <Text style={styles.fieldErrorText}>{genreError}</Text> : null}
-            </View>
-
-            {/* Status */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Status *</Text>
-              <View style={styles.pickerRow}>
-                {STATUSES.map((st) => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.pickerChip, status === st && styles.pickerChipActive]}
-                    onPress={() => {
-                      setStatus(st);
-                      setEditError('');
-                    }}
-                  >
-                    <Text style={[styles.pickerChipText, status === st && styles.pickerChipTextActive]}>
-                      {st}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {statusError ? <Text style={styles.fieldErrorText}>{statusError}</Text> : null}
-            </View>
-
-            {/* Rating */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Rating (0 - 5)</Text>
-              <TextInput
-                style={[styles.input, ratingError ? styles.inputInvalid : null]}
-                keyboardType="numeric"
-                value={rating}
-                placeholder="Optional"
-                placeholderTextColor="#64748b"
-                onChangeText={(t) => {
-                  setRating(t);
-                  setEditError('');
-                }}
-              />
-              {ratingError ? <Text style={styles.fieldErrorText}>{ratingError}</Text> : null}
-            </View>
-
-            {/* Notes */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Notes (max 300 chars)</Text>
-              <TextInput
-                style={[styles.textArea, notesError ? styles.inputInvalid : null]}
+                style={[styles.textArea, !!notesError && styles.inputInvalid]}
                 multiline
                 numberOfLines={3}
                 value={notes}
@@ -448,27 +378,21 @@ export default function DetailScreen({ route, navigation }: Props) {
               {notesError ? <Text style={styles.fieldErrorText}>{notesError}</Text> : null}
             </View>
 
-            {/* Save & Cancel Buttons */}
             <View style={styles.editActionRow}>
-              <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.buttonDisabled]}
+              <AppButton
+                title="Save"
+                variant="success"
+                loading={saving}
                 onPress={handleSaveEdit}
+                style={styles.editActionBtn}
+              />
+              <AppButton
+                title="Cancel"
+                variant="secondary"
                 disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Save</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.cancelBtn}
                 onPress={handleCancelEdit}
-                disabled={saving}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
+                style={styles.editActionBtn}
+              />
             </View>
           </View>
         )}
@@ -480,7 +404,7 @@ export default function DetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: COLORS.background,
   },
   container: {
     padding: 20,
@@ -493,27 +417,16 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   notFoundText: {
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     fontSize: 16,
     marginBottom: 16,
   },
-  backBtn: {
-    backgroundColor: '#334155',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  backBtnText: {
-    color: '#f8fafc',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   detailCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 22,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.cardBorder,
   },
   headerRow: {
     flexDirection: 'row',
@@ -524,7 +437,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#ffffff',
+    color: COLORS.text,
     flex: 1,
     marginRight: 10,
   },
@@ -533,14 +446,14 @@ const styles = StyleSheet.create({
   },
   starIcon: {
     fontSize: 30,
-    color: '#64748b',
+    color: COLORS.starInactive,
   },
   starIconActive: {
-    color: '#facc15',
+    color: COLORS.star,
   },
   directorText: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     marginBottom: 16,
   },
   badgesRow: {
@@ -558,7 +471,7 @@ const styles = StyleSheet.create({
   genreBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#60a5fa',
+    color: COLORS.badgeAction,
   },
   statusBadge: {
     backgroundColor: 'rgba(16, 185, 129, 0.2)',
@@ -569,7 +482,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#34d399',
+    color: COLORS.badgeWatched,
   },
   ratingBadge: {
     backgroundColor: 'rgba(250, 204, 21, 0.2)',
@@ -580,11 +493,11 @@ const styles = StyleSheet.create({
   ratingBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#fde047',
+    color: COLORS.star,
   },
   divider: {
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: COLORS.cardBorder,
     marginVertical: 16,
   },
   sectionBlock: {
@@ -593,14 +506,14 @@ const styles = StyleSheet.create({
   blockLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   blockValue: {
     fontSize: 14,
-    color: '#e2e8f0',
+    color: COLORS.textSub,
     lineHeight: 22,
   },
   actionButtonsRow: {
@@ -608,148 +521,65 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 8,
   },
-  editBtn: {
+  actionBtn: {
     flex: 1,
-    backgroundColor: '#3b82f6',
-    paddingVertical: 13,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  editBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  deleteBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderWidth: 1,
-    borderColor: '#ef4444',
-    paddingVertical: 13,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  deleteBtnText: {
-    color: '#ef4444',
-    fontSize: 15,
-    fontWeight: '700',
   },
   editHeaderTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.text,
     marginBottom: 16,
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: COLORS.errorBg,
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: COLORS.error,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
   },
   errorBannerText: {
-    color: '#ef4444',
+    color: COLORS.error,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
-  inputGroup: {
+  notesGroup: {
     marginBottom: 14,
   },
-  label: {
+  notesLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: COLORS.textSub,
     marginBottom: 6,
-  },
-  input: {
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#475569',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#f8fafc',
-    backgroundColor: '#0f172a',
   },
   textArea: {
     height: 70,
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: COLORS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#f8fafc',
-    backgroundColor: '#0f172a',
+    color: COLORS.text,
+    backgroundColor: COLORS.inputBg,
     textAlignVertical: 'top',
   },
   inputInvalid: {
-    borderColor: '#ef4444',
+    borderColor: COLORS.error,
   },
   fieldErrorText: {
-    color: '#ef4444',
+    color: COLORS.error,
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pickerChip: {
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  pickerChipActive: {
-    backgroundColor: '#e11d48',
-    borderColor: '#e11d48',
-  },
-  pickerChipText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  pickerChipTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
   },
   editActionRow: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 12,
   },
-  saveBtn: {
+  editActionBtn: {
     flex: 1,
-    backgroundColor: '#10b981',
-    paddingVertical: 13,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  saveBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: '#334155',
-    paddingVertical: 13,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
   },
 });

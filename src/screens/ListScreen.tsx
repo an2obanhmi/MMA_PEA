@@ -17,15 +17,22 @@ import { useAuth } from '../context/AuthContext';
 import { firebaseAuth } from '../services/firebaseAuth';
 import { movieService } from '../services/movieService';
 import { Genre, Movie, MovieStatus } from '../types';
+import { AppButton, AppInput, GenreStatusPicker, MovieItem } from '../components';
+import { COLORS, GENRES, STATUSES } from '../constants/theme';
+import {
+  validateTitle,
+  validateDirector,
+  validateGenre,
+  validateStatus,
+  validateRating,
+  validateNotes,
+} from '../utils/validation';
 
 type ListScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'List'>;
 
 interface Props {
   navigation: ListScreenNavigationProp;
 }
-
-const GENRES: Genre[] = ['Action', 'Comedy', 'Drama', 'Horror'];
-const STATUSES: MovieStatus[] = ['Plan to Watch', 'Watching', 'Watched'];
 
 export default function ListScreen({ navigation }: Props) {
   const { user } = useAuth();
@@ -53,7 +60,7 @@ export default function ListScreen({ navigation }: Props) {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Đăng ký nhận dữ liệu phim thời gian thực từ Firestore
+  // Đăng ký nhận dữ liệu thời gian thực
   useEffect(() => {
     if (!user) return;
 
@@ -83,77 +90,28 @@ export default function ListScreen({ navigation }: Props) {
     }
   };
 
-  // Validation Form thêm phim
-  const getTitleError = () => {
-    if (!hasSubmittedForm) return '';
-    if (!title.trim()) return 'Title is required';
-    if (title.length > 100) return 'Title must be at most 100 characters';
-    return '';
-  };
+  // Validation messages
+  const titleError = validateTitle(title, hasSubmittedForm);
+  const directorError = validateDirector(director, hasSubmittedForm);
+  const genreError = validateGenre(genre, hasSubmittedForm);
+  const statusError = validateStatus(status, hasSubmittedForm);
+  const ratingError = validateRating(rating, hasSubmittedForm);
+  const notesError = validateNotes(notes, hasSubmittedForm);
 
-  const getDirectorError = () => {
-    if (!hasSubmittedForm) return '';
-    if (!director.trim()) return 'Director is required';
-    if (director.length > 60) return 'Director must be at most 60 characters';
-    return '';
-  };
-
-  const getGenreError = () => {
-    if (!hasSubmittedForm) return '';
-    if (!genre) return 'Please choose a genre';
-    return '';
-  };
-
-  const getStatusError = () => {
-    if (!hasSubmittedForm) return '';
-    if (!status) return 'Please choose a status';
-    return '';
-  };
-
-  const getRatingError = () => {
-    if (!hasSubmittedForm) return '';
-    if (rating.trim() === '') return '';
-    // Kiểm tra số nguyên từ 0 đến 5
-    const num = Number(rating.trim());
-    if (!Number.isInteger(num) || num < 0 || num > 5 || isNaN(num)) {
-      return 'Rating must be a whole number from 0 to 5';
-    }
-    return '';
-  };
-
-  const getNotesError = () => {
-    if (!hasSubmittedForm) return '';
-    if (notes.length > 300) return 'Notes must be at most 300 characters';
-    return '';
-  };
-
-  const titleError = getTitleError();
-  const directorError = getDirectorError();
-  const genreError = getGenreError();
-  const statusError = getStatusError();
-  const ratingError = getRatingError();
-  const notesError = getNotesError();
-
-  // Xử lý thêm phim
+  // Thêm phim mới
   const handleAddMovie = async () => {
     setHasSubmittedForm(true);
     setMovieSuccess('');
     setMovieError('');
 
-    const isTitleValid = title.trim() !== '' && title.length <= 100;
-    const isDirectorValid = director.trim() !== '' && director.length <= 60;
-    const isGenreValid = genre !== '';
-    const isStatusValid = status !== '';
-
-    let isRatingValid = true;
-    if (rating.trim() !== '') {
-      const num = Number(rating.trim());
-      isRatingValid = Number.isInteger(num) && num >= 0 && num <= 5;
-    }
-
-    const isNotesValid = notes.length <= 300;
-
-    if (!isTitleValid || !isDirectorValid || !isGenreValid || !isStatusValid || !isRatingValid || !isNotesValid) {
+    if (
+      validateTitle(title, true) ||
+      validateDirector(director, true) ||
+      validateGenre(genre, true) ||
+      validateStatus(status, true) ||
+      validateRating(rating, true) ||
+      validateNotes(notes, true)
+    ) {
       return;
     }
 
@@ -172,9 +130,7 @@ export default function ListScreen({ navigation }: Props) {
         notes: notes.trim(),
       });
 
-      // Thêm thành công
       setMovieSuccess('Movie added');
-      // Xoá trắng Form
       setTitle('');
       setDirector('');
       setGenre('');
@@ -189,7 +145,7 @@ export default function ListScreen({ navigation }: Props) {
     }
   };
 
-  // Toggle trạng thái yêu thích
+  // Toggle favorite
   const handleToggleFavorite = async (movie: Movie) => {
     try {
       await movieService.toggleFavorite(movie.id, movie.favorite);
@@ -198,22 +154,18 @@ export default function ListScreen({ navigation }: Props) {
     }
   };
 
-  // Lọc và Tìm kiếm phim (Tức thì, kết hợp tất cả các bộ lọc)
+  // Lọc và Tìm kiếm phim
   const filteredMovies = useMemo(() => {
     return movies.filter((m) => {
-      // Lọc Genre
       if (selectedGenreFilter !== 'All' && m.genre !== selectedGenreFilter) {
         return false;
       }
-      // Lọc Status
       if (selectedStatusFilter !== 'All' && m.status !== selectedStatusFilter) {
         return false;
       }
-      // Lọc Favorites Only
       if (favoritesOnly && !m.favorite) {
         return false;
       }
-      // Lọc Tìm kiếm (Title hoặc Director, case-insensitive, bỏ khoảng trắng hai đầu)
       const q = searchQuery.trim().toLowerCase();
       if (q !== '') {
         const matchesTitle = m.title.toLowerCase().includes(q);
@@ -253,7 +205,6 @@ export default function ListScreen({ navigation }: Props) {
         count: counts[st],
       }));
 
-    // Sắp xếp: Số lượng phim nhiều nhất lên đầu; nếu bằng nhau thì theo thứ tự Plan to Watch -> Watching -> Watched
     result.sort((a, b) => {
       if (b.count !== a.count) {
         return b.count - a.count;
@@ -264,7 +215,7 @@ export default function ListScreen({ navigation }: Props) {
     return result;
   }, [filteredMovies]);
 
-  // Reset toàn bộ bộ lọc
+  // Xóa bộ lọc
   const handleClearFilters = () => {
     setSelectedGenreFilter('All');
     setSelectedStatusFilter('All');
@@ -279,7 +230,7 @@ export default function ListScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View testID="list-screen" style={styles.container}>
-        {/* Header với email người dùng và nút Logout */}
+        {/* Header với email và Logout */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.appName}>CineList</Text>
@@ -287,17 +238,20 @@ export default function ListScreen({ navigation }: Props) {
               {user?.email}
             </Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutBtnText}>Logout</Text>
-          </TouchableOpacity>
+          <AppButton
+            title="Logout"
+            variant="danger"
+            onPress={handleLogout}
+            style={styles.logoutBtn}
+            textStyle={styles.logoutBtnText}
+          />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* PHẦN A: FORM THÊM PHIM (testID="movie-form") */}
-          <View testID="movie-form" style={styles.formCard}>
+          <View testID="movie-form" style={styles.card}>
             <Text style={styles.sectionTitle}>Add a Movie</Text>
 
-            {/* Thông báo thành công với testID="movie-success" */}
             {movieSuccess ? (
               <View style={styles.successBanner}>
                 <Text testID="movie-success" style={styles.successBannerText}>
@@ -306,7 +260,6 @@ export default function ListScreen({ navigation }: Props) {
               </View>
             ) : null}
 
-            {/* Thông báo lỗi với testID="error-movie" */}
             {movieError ? (
               <View style={styles.errorBanner}>
                 <Text testID="error-movie" style={styles.errorBannerText}>
@@ -315,135 +268,75 @@ export default function ListScreen({ navigation }: Props) {
               </View>
             ) : null}
 
-            {/* Title */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Title *</Text>
+            <AppInput
+              label="Title *"
+              placeholder="e.g. Inception"
+              value={title}
+              error={titleError}
+              onChangeText={(t) => {
+                setTitle(t);
+                setMovieSuccess('');
+                setMovieError('');
+              }}
+            />
+
+            <AppInput
+              label="Director *"
+              placeholder="e.g. Christopher Nolan"
+              value={director}
+              error={directorError}
+              onChangeText={(t) => {
+                setDirector(t);
+                setMovieSuccess('');
+                setMovieError('');
+              }}
+            />
+
+            <GenreStatusPicker
+              label="Genre *"
+              options={GENRES}
+              emptyLabel="Choose genre"
+              selectedValue={genre}
+              error={genreError}
+              onSelect={(g) => {
+                setGenre(g);
+                setMovieSuccess('');
+                setMovieError('');
+              }}
+            />
+
+            <GenreStatusPicker
+              label="Status *"
+              options={STATUSES}
+              emptyLabel="Choose status"
+              selectedValue={status}
+              error={statusError}
+              onSelect={(st) => {
+                setStatus(st);
+                setMovieSuccess('');
+                setMovieError('');
+              }}
+            />
+
+            <AppInput
+              label="Rating (0 - 5, optional)"
+              placeholder="e.g. 5"
+              keyboardType="numeric"
+              value={rating}
+              error={ratingError}
+              onChangeText={(t) => {
+                setRating(t);
+                setMovieSuccess('');
+                setMovieError('');
+              }}
+            />
+
+            <View style={styles.notesGroup}>
+              <Text style={styles.notesLabel}>Notes (optional, max 300 chars)</Text>
               <TextInput
-                style={[styles.input, titleError ? styles.inputInvalid : null]}
-                placeholder="e.g. Inception"
-                placeholderTextColor="#64748b"
-                value={title}
-                onChangeText={(t) => {
-                  setTitle(t);
-                  setMovieSuccess('');
-                  setMovieError('');
-                }}
-              />
-              {titleError ? <Text style={styles.fieldErrorText}>{titleError}</Text> : null}
-            </View>
-
-            {/* Director */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Director *</Text>
-              <TextInput
-                style={[styles.input, directorError ? styles.inputInvalid : null]}
-                placeholder="e.g. Christopher Nolan"
-                placeholderTextColor="#64748b"
-                value={director}
-                onChangeText={(t) => {
-                  setDirector(t);
-                  setMovieSuccess('');
-                  setMovieError('');
-                }}
-              />
-              {directorError ? <Text style={styles.fieldErrorText}>{directorError}</Text> : null}
-            </View>
-
-            {/* Genre Picker */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Genre *</Text>
-              <View style={styles.pickerRow}>
-                <TouchableOpacity
-                  style={[styles.pickerChip, genre === '' ? styles.pickerChipActive : null]}
-                  onPress={() => {
-                    setGenre('');
-                    setMovieSuccess('');
-                    setMovieError('');
-                  }}
-                >
-                  <Text style={[styles.pickerChipText, genre === '' ? styles.pickerChipTextActive : null]}>
-                    Choose genre
-                  </Text>
-                </TouchableOpacity>
-                {GENRES.map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.pickerChip, genre === g ? styles.pickerChipActive : null]}
-                    onPress={() => {
-                      setGenre(g);
-                      setMovieSuccess('');
-                      setMovieError('');
-                    }}
-                  >
-                    <Text style={[styles.pickerChipText, genre === g ? styles.pickerChipTextActive : null]}>
-                      {g}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {genreError ? <Text style={styles.fieldErrorText}>{genreError}</Text> : null}
-            </View>
-
-            {/* Status Picker */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Status *</Text>
-              <View style={styles.pickerRow}>
-                <TouchableOpacity
-                  style={[styles.pickerChip, status === '' ? styles.pickerChipActive : null]}
-                  onPress={() => {
-                    setStatus('');
-                    setMovieSuccess('');
-                    setMovieError('');
-                  }}
-                >
-                  <Text style={[styles.pickerChipText, status === '' ? styles.pickerChipTextActive : null]}>
-                    Choose status
-                  </Text>
-                </TouchableOpacity>
-                {STATUSES.map((st) => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.pickerChip, status === st ? styles.pickerChipActive : null]}
-                    onPress={() => {
-                      setStatus(st);
-                      setMovieSuccess('');
-                      setMovieError('');
-                    }}
-                  >
-                    <Text style={[styles.pickerChipText, status === st ? styles.pickerChipTextActive : null]}>
-                      {st}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {statusError ? <Text style={styles.fieldErrorText}>{statusError}</Text> : null}
-            </View>
-
-            {/* Rating */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Rating (0 - 5, optional)</Text>
-              <TextInput
-                style={[styles.input, ratingError ? styles.inputInvalid : null]}
-                placeholder="e.g. 5"
-                placeholderTextColor="#64748b"
-                keyboardType="numeric"
-                value={rating}
-                onChangeText={(t) => {
-                  setRating(t);
-                  setMovieSuccess('');
-                  setMovieError('');
-                }}
-              />
-              {ratingError ? <Text style={styles.fieldErrorText}>{ratingError}</Text> : null}
-            </View>
-
-            {/* Notes */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Notes (optional, max 300 chars)</Text>
-              <TextInput
-                style={[styles.textArea, notesError ? styles.inputInvalid : null]}
+                style={[styles.textArea, !!notesError && styles.inputInvalid]}
                 placeholder="Personal thoughts or notes..."
-                placeholderTextColor="#64748b"
+                placeholderTextColor={COLORS.textMuted}
                 multiline
                 numberOfLines={3}
                 value={notes}
@@ -456,38 +349,36 @@ export default function ListScreen({ navigation }: Props) {
               {notesError ? <Text style={styles.fieldErrorText}>{notesError}</Text> : null}
             </View>
 
-            <TouchableOpacity
-              style={[styles.addBtn, isAdding && styles.buttonDisabled]}
+            <AppButton
+              title="Add Movie"
+              variant="primary"
+              loading={isAdding}
               onPress={handleAddMovie}
-              disabled={isAdding}
-            >
-              {isAdding ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.addBtnText}>Add Movie</Text>
-              )}
-            </TouchableOpacity>
+              style={styles.addBtn}
+            />
           </View>
 
           {/* PHẦN C: FILTER, SEARCH VÀ SUMMARY */}
-          <View style={styles.filterCard}>
+          <View style={styles.card}>
             <View style={styles.filterHeader}>
               <Text style={styles.sectionTitle}>Filters & Search</Text>
-              <TouchableOpacity style={styles.clearBtn} onPress={handleClearFilters}>
-                <Text style={styles.clearBtnText}>Clear</Text>
-              </TouchableOpacity>
+              <AppButton
+                title="Clear"
+                variant="secondary"
+                onPress={handleClearFilters}
+                style={styles.clearBtn}
+                textStyle={styles.clearBtnText}
+              />
             </View>
 
-            {/* Search Box */}
             <TextInput
               style={styles.searchInput}
               placeholder="Search by title or director..."
-              placeholderTextColor="#64748b"
+              placeholderTextColor={COLORS.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
 
-            {/* Genre Filter */}
             <Text style={styles.filterLabel}>Genre Filter</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipRow}>
               {(['All', ...GENRES] as const).map((g) => (
@@ -503,7 +394,6 @@ export default function ListScreen({ navigation }: Props) {
               ))}
             </ScrollView>
 
-            {/* Status Filter */}
             <Text style={styles.filterLabel}>Status Filter</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipRow}>
               {(['All', ...STATUSES] as const).map((st) => (
@@ -519,18 +409,17 @@ export default function ListScreen({ navigation }: Props) {
               ))}
             </ScrollView>
 
-            {/* Favorites Only Switch */}
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Favorites only</Text>
               <Switch
                 value={favoritesOnly}
                 onValueChange={setFavoritesOnly}
-                trackColor={{ false: '#334155', true: '#e11d48' }}
+                trackColor={{ false: COLORS.cardBorder, true: COLORS.primary }}
                 thumbColor="#ffffff"
               />
             </View>
 
-            {/* Summary Section */}
+            {/* Summary */}
             <View style={styles.summaryBox}>
               <View style={styles.summaryStatsRow}>
                 <View style={styles.summaryStat}>
@@ -547,7 +436,6 @@ export default function ListScreen({ navigation }: Props) {
                 </View>
               </View>
 
-              {/* Status Breakdown Table */}
               {statusBreakdown.length > 0 ? (
                 <View style={styles.breakdownContainer}>
                   <Text style={styles.breakdownTitle}>Status Breakdown</Text>
@@ -567,7 +455,7 @@ export default function ListScreen({ navigation }: Props) {
             <Text style={styles.sectionTitle}>Your Watchlist</Text>
 
             {loadingMovies ? (
-              <ActivityIndicator size="large" color="#e11d48" style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
             ) : filteredMovies.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text testID="movies-empty" style={styles.emptyText}>
@@ -577,44 +465,12 @@ export default function ListScreen({ navigation }: Props) {
             ) : (
               <View style={styles.movieList}>
                 {filteredMovies.map((movie) => (
-                  <TouchableOpacity
+                  <MovieItem
                     key={movie.id}
-                    testID="movie-item"
-                    style={styles.movieCard}
-                    activeOpacity={0.8}
+                    movie={movie}
                     onPress={() => navigation.navigate('Detail', { id: movie.id })}
-                  >
-                    <View style={styles.movieCardContent}>
-                      <View style={styles.movieHeaderRow}>
-                        <Text style={styles.movieTitle}>{movie.title}</Text>
-                        <TouchableOpacity
-                          style={styles.starBtn}
-                          onPress={() => handleToggleFavorite(movie)}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                          <Text style={[styles.starIcon, movie.favorite && styles.starIconActive]}>
-                            {movie.favorite ? '★' : '☆'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <Text style={styles.movieDirector}>Directed by {movie.director}</Text>
-
-                      <View style={styles.movieBadgesRow}>
-                        <View style={styles.genreBadge}>
-                          <Text style={styles.genreBadgeText}>{movie.genre}</Text>
-                        </View>
-                        <View style={styles.statusBadge}>
-                          <Text style={styles.statusBadgeText}>{movie.status}</Text>
-                        </View>
-                        {movie.rating !== null && movie.rating !== undefined ? (
-                          <View style={styles.ratingBadge}>
-                            <Text style={styles.ratingBadgeText}>⭐ {movie.rating}/5</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                    onToggleFavorite={() => handleToggleFavorite(movie)}
+                  />
                 ))}
               </View>
             )}
@@ -628,21 +484,21 @@ export default function ListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: '#1e293b',
+    paddingVertical: 12,
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: COLORS.cardBorder,
   },
   headerLeft: {
     flex: 1,
@@ -651,161 +507,98 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#ffffff',
+    color: COLORS.text,
   },
   userEmail: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     marginTop: 2,
   },
   logoutBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ef4444',
+    height: 36,
+    paddingHorizontal: 12,
   },
   logoutBtnText: {
-    color: '#ef4444',
     fontSize: 13,
-    fontWeight: '700',
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
   },
-  formCard: {
-    backgroundColor: '#1e293b',
+  card: {
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.cardBorder,
     marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.text,
     marginBottom: 16,
   },
   successBanner: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: COLORS.successBg,
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: COLORS.success,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
   },
   successBannerText: {
-    color: '#22c55e',
+    color: COLORS.success,
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: COLORS.errorBg,
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: COLORS.error,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
   },
   errorBannerText: {
-    color: '#ef4444',
+    color: COLORS.error,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
-  inputGroup: {
+  notesGroup: {
     marginBottom: 14,
   },
-  label: {
+  notesLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: COLORS.textSub,
     marginBottom: 6,
-  },
-  input: {
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#475569',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#f8fafc',
-    backgroundColor: '#0f172a',
   },
   textArea: {
     height: 70,
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: COLORS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#f8fafc',
-    backgroundColor: '#0f172a',
+    color: COLORS.text,
+    backgroundColor: COLORS.inputBg,
     textAlignVertical: 'top',
   },
   inputInvalid: {
-    borderColor: '#ef4444',
+    borderColor: COLORS.error,
   },
   fieldErrorText: {
-    color: '#ef4444',
+    color: COLORS.error,
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
   },
-  pickerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pickerChip: {
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#475569',
-  },
-  pickerChipActive: {
-    backgroundColor: '#e11d48',
-    borderColor: '#e11d48',
-  },
-  pickerChipText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  pickerChipTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
   addBtn: {
-    backgroundColor: '#e11d48',
-    height: 46,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  addBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  filterCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 20,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -814,31 +607,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   clearBtn: {
-    paddingVertical: 5,
+    height: 32,
     paddingHorizontal: 12,
-    backgroundColor: '#334155',
-    borderRadius: 6,
   },
   clearBtnText: {
-    color: '#f8fafc',
     fontSize: 12,
-    fontWeight: '700',
   },
   searchInput: {
     height: 44,
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: COLORS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: '#f8fafc',
-    backgroundColor: '#0f172a',
+    color: COLORS.text,
+    backgroundColor: COLORS.inputBg,
     marginBottom: 14,
   },
   filterLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -852,9 +641,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: '#0f172a',
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: COLORS.inputBorder,
   },
   filterChipActive: {
     backgroundColor: '#3b82f6',
@@ -862,7 +651,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     fontWeight: '500',
   },
   filterChipTextActive: {
@@ -875,22 +664,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: COLORS.cardBorder,
     marginTop: 4,
     marginBottom: 12,
   },
   switchLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f8fafc',
+    color: COLORS.text,
   },
   summaryBox: {
-    backgroundColor: '#0f172a',
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     padding: 14,
     marginTop: 4,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.cardBorder,
   },
   summaryStatsRow: {
     flexDirection: 'row',
@@ -902,23 +691,23 @@ const styles = StyleSheet.create({
   },
   summaryStatLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     marginBottom: 4,
   },
   summaryStatValue: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#ffffff',
+    color: COLORS.text,
   },
   breakdownContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
+    borderTopColor: COLORS.card,
     paddingTop: 10,
   },
   breakdownTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
@@ -929,12 +718,12 @@ const styles = StyleSheet.create({
   },
   breakdownStatusText: {
     fontSize: 13,
-    color: '#cbd5e1',
+    color: COLORS.textSub,
   },
   breakdownCountText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#f8fafc',
+    color: COLORS.text,
   },
   listSection: {
     marginBottom: 30,
@@ -942,91 +731,17 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: 36,
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.cardBorder,
   },
   emptyText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
   movieList: {
     gap: 12,
-  },
-  movieCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  movieCardContent: {},
-  movieHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  movieTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#ffffff',
-    flex: 1,
-    marginRight: 8,
-  },
-  starBtn: {
-    padding: 4,
-  },
-  starIcon: {
-    fontSize: 24,
-    color: '#64748b',
-  },
-  starIconActive: {
-    color: '#facc15',
-  },
-  movieDirector: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginBottom: 10,
-  },
-  movieBadgesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  genreBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  genreBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#60a5fa',
-  },
-  statusBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#34d399',
-  },
-  ratingBadge: {
-    backgroundColor: 'rgba(250, 204, 21, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  ratingBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fde047',
   },
 });
